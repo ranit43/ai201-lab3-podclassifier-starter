@@ -91,10 +91,22 @@ the format below:" followed by the output format you chose.
 **What output format should you request from the LLM?**
 
 ```
-[blank — you need to parse the response in classify_episode(). What format
-makes parsing reliable? Think about: a single label on its own line?
-A structured format like "Label: X / Reasoning: Y"? JSON?
-What are the tradeoffs?]
+Request a compact JSON object with exactly two keys:
+
+{
+  "label": "interview",
+  "reasoning": "The description presents a host asking one expert guest about their work."
+}
+
+JSON gives named fields, so parsing does not depend on line order. It also
+supports both required outputs: one fixed label and a brief explanation. The
+tradeoff is that the LLM may wrap the JSON in markdown fences or add a sentence
+around it, so classify_episode() should strip code fences and, if needed,
+extract the first JSON-looking object before parsing.
+
+Do not use Groq's native JSON mode for this milestone. The lab is practicing
+robust parsing of ordinary LLM text, so the prompt should request JSON while the
+code handles messy real-world output.
 ```
 
 ---
@@ -102,8 +114,17 @@ What are the tradeoffs?]
 **Edge cases to handle in the prompt:**
 
 ```
-[blank — what if labeled_examples is empty? What if the description is very
-short? How does your prompt handle these?]
+If labeled_examples is empty, still produce a valid prompt with the taxonomy and
+an explicit note that no labeled examples were provided. The normal UI blocks
+this case, but the function should not return an empty prompt.
+
+If the description is very short, tell the model to classify from available
+format cues and keep the reasoning cautious. The prompt should emphasize that
+labels are based on episode structure, not subject matter, tone, or marketing
+language.
+
+Include all labeled examples because these 20 examples are the full few-shot
+training signal for the lab.
 ```
 
 ---
@@ -159,9 +180,16 @@ Extract the response text from:
 **Step 3 — Parse the response:**
 
 ```
-[blank — how do you extract the label and reasoning from the LLM's text output?
-What string operations or parsing logic do you need?
-This depends on the output format you chose in build_few_shot_prompt.]
+Read response.choices[0].message.content and strip surrounding whitespace.
+First try to parse it as JSON. Before parsing, remove common markdown code
+fences such as ```json ... ```. If direct JSON parsing fails, find the first
+substring from "{" through the matching-looking final "}" and try json.loads()
+on that substring.
+
+If JSON parsing still fails, use a text fallback: scan for lines like
+"Label: interview" and "Reasoning: ...". If no labeled line is present, use the
+first non-empty line as a candidate label and keep the full response as the
+reasoning.
 ```
 
 ---
@@ -169,8 +197,11 @@ This depends on the output format you chose in build_few_shot_prompt.]
 **Step 4 — Validate the label:**
 
 ```
-[blank — what do you do if the LLM returns a label that isn't in VALID_LABELS?
-What should label be set to?]
+Normalize the candidate label before validation: convert it to a string, strip
+whitespace, remove wrapping punctuation/quotes/asterisks/backticks, and
+lowercase it. If the normalized label is one of VALID_LABELS, return it.
+Otherwise set the label to "unknown" and keep a reasoning string explaining that
+the response did not contain a valid label.
 ```
 
 ---
@@ -178,9 +209,17 @@ What should label be set to?]
 **Step 5 — Handle errors gracefully:**
 
 ```
-[blank — what could go wrong? (Network error? Unparseable response?)
-What should the function return if something fails?
-Hint: the evaluation loop runs 20 calls — one bad response shouldn't crash everything.]
+The API call can fail because of a missing key, network error, rate limit, or
+unexpected response shape. Parsing can fail if the LLM ignores the requested
+format. Wrap the LLM call and parsing in error handling so evaluation does not
+crash on one bad call.
+
+On failure, return:
+
+{
+    "label": "unknown",
+    "reasoning": "Classification failed: <error>"
+}
 ```
 
 ---
@@ -213,24 +252,32 @@ any labels you're unsure about. Annotation quality is part of the lab.
 **Test: what does the raw LLM response look like for one episode?**
 
 ```
-Episode tested: [title]
-Raw response text: [paste it here]
+Episode tested: The Aral Sea: A Disaster in Four Acts
+Raw response text: {"label": "narrative", "reasoning": "The episode describes a story told in multiple parts, with a clear structure and an attempt to convey a story arc, suggesting a narrative format."}
 ```
 
 **How did you parse the label out of the response?**
 
 ```
-[describe the string operations — strip, split, lower, etc.]
+Strip surrounding whitespace and markdown code fences, then try json.loads().
+If that fails, extract the first JSON-looking {...} substring and parse that.
+If JSON still fails, look for Label: and Reasoning: lines. Normalize the
+candidate label by stripping quotes, punctuation, markdown markers, and
+lowercasing before checking VALID_LABELS.
 ```
 
 **Did any episodes return `"unknown"`? If so, why?**
 
 ```
-[yes / no — if yes, what did the raw response look like?]
+No for the live UI checkpoint examples. Error-path testing confirmed that API
+or connection failures return "unknown" with an explanatory reason instead of
+crashing the caller.
 ```
 
 **One thing about the output format that surprised you:**
 
 ```
-[your answer here]
+For the tested response, the model followed the JSON instruction exactly with
+no markdown fence or extra prose. The fallback parser is still useful because
+the lab warns that later responses may vary across calls.
 ```
