@@ -44,8 +44,11 @@ Returns the fraction of predictions that exactly match the ground truth.
 **Formula:**
 
 ```
-[blank — write out the accuracy formula in plain English.
- What counts as "correct"? What do you divide by?]
+accuracy = number of exact prediction/ground-truth matches / number of
+ground-truth examples
+
+A prediction counts as correct only when the predicted label exactly equals the
+ground-truth label at the same list position.
 ```
 
 ---
@@ -53,10 +56,11 @@ Returns the fraction of predictions that exactly match the ground truth.
 **Step-by-step logic:**
 
 ```
-[blank — describe the steps your code will take.
- 1. ...
- 2. ...
- 3. ...]
+1. If there are no ground-truth examples, return 0.0.
+2. Pair each prediction with the matching ground-truth label using list order.
+3. Count the number of pairs where predicted == truth.
+4. Divide the correct count by the number of ground-truth examples.
+5. Return the resulting float.
 ```
 
 ---
@@ -64,7 +68,8 @@ Returns the fraction of predictions that exactly match the ground truth.
 **Edge case — what if both lists are empty?**
 
 ```
-[blank — what should the function return? Why?]
+Return 0.0. With no examples, there is no measured accuracy, and reporting
+100% would be misleading.
 ```
 
 ---
@@ -75,7 +80,15 @@ Returns the fraction of predictions that exactly match the ground truth.
 predictions  = ["interview", "solo", "panel", "interview"]
 ground_truth = ["interview", "solo", "solo",  "narrative"]
 
-[blank — what does compute_accuracy() return for these inputs? Show your work.]
+Correct:
+- interview == interview
+- solo == solo
+
+Incorrect:
+- panel != solo
+- interview != narrative
+
+Result: 2 correct / 4 examples = 0.5
 ```
 
 ---
@@ -113,8 +126,11 @@ A `dict` keyed by label. Each value is a dict with three keys:
 **What does "correct" mean for a given class?**
 
 ```
-[blank — be precise. When does an episode count as correctly classified
- for the "interview" class, for example?]
+An episode counts as correct for a class when its ground-truth label is that
+class and the predicted label exactly matches that same class.
+
+For example, an interview episode is correct only when truth == "interview" and
+predicted == "interview".
 ```
 
 ---
@@ -122,7 +138,8 @@ A `dict` keyed by label. Each value is a dict with three keys:
 **What does "total" mean for a given class?**
 
 ```
-[blank — is "total" the total number of predictions, or something more specific?]
+For a class, total is the number of examples whose ground-truth label is that
+class. It is not the total number of predictions across the whole test set.
 ```
 
 ---
@@ -130,12 +147,16 @@ A `dict` keyed by label. Each value is a dict with three keys:
 **Step-by-step logic:**
 
 ```
-[blank — describe the steps your code will take.
- 1. Initialize ...
- 2. Loop over ...
- 3. For each pair (predicted, truth) ...
- 4. After the loop ...
- 5. Return ...]
+1. Initialize one stats dictionary for each label in VALID_LABELS with correct
+   = 0, total = 0, and accuracy = 0.0.
+2. Loop over prediction/ground-truth pairs in list order.
+3. For each pair, ignore it if the ground-truth label is not in VALID_LABELS.
+4. Otherwise, increment total for the ground-truth class.
+5. If predicted == truth, increment correct for that same ground-truth class.
+6. After the loop, compute accuracy = correct / total for each class with at
+   least one example.
+7. Leave accuracy as 0.0 for classes with no examples.
+8. Return the stats dictionary.
 ```
 
 ---
@@ -143,8 +164,8 @@ A `dict` keyed by label. Each value is a dict with three keys:
 **Edge case — what if a class has no examples in ground_truth (total == 0)?**
 
 ```
-[blank — what should accuracy be set to? Why?
- Hint: look at the docstring in evaluate.py.]
+Set accuracy to 0.0. There are no examples for that class, so there is no
+measured accuracy to report.
 ```
 
 ---
@@ -155,14 +176,12 @@ A `dict` keyed by label. Each value is a dict with three keys:
 predictions  = ["interview", "interview", "solo", "panel", "panel"]
 ground_truth = ["interview", "solo",      "solo", "panel", "narrative"]
 
-[blank — fill in the per-class results table below]
-
 label       correct  total  accuracy
 ----------  -------  -----  --------
-interview   [blank]  [blank]  [blank]
-solo        [blank]  [blank]  [blank]
-panel       [blank]  [blank]  [blank]
-narrative   [blank]  [blank]  [blank]
+interview   1        1      1.0
+solo        1        2      0.5
+panel       1        1      1.0
+narrative   0        1      0.0
 ```
 
 ---
